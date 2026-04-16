@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
     AlertCircle,
@@ -11,11 +11,11 @@ import {
     Syringe,
     X
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
-    Image,
     Modal,
     RefreshControl,
     SafeAreaView,
@@ -60,22 +60,23 @@ export default function InicioScreen() {
   }, []);
 
   useFocusEffect(
-    useCallback(() => { fetchDatos(); }, [isConnected])
+    useCallback(() => { fetchDatos(); }, []) // UX: sin isConnected para no saltar la UI
   );
 
   async function fetchDatos() {
     setLoading(true);
     try {
+        const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+
       // Cargar nombre y logo desde caché local primero (instantáneo)
-      const nombreCache = await AsyncStorage.getItem('nombre_rancho');
-      const logoCache   = await AsyncStorage.getItem('logo_url');
+      const nombreCache = await AsyncStorage.getItem(`nombre_rancho_${userId}`);
+      const logoCache   = await AsyncStorage.getItem(`logo_url_${userId}`);
       if (nombreCache) setNombreRancho(nombreCache);
       if (logoCache)   setLogoUrl(logoCache);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-
-      if (isConnected && userId) {
+      if (isConnected) {
         // Nombre del rancho
         const { data: perfil } = await supabase
           .from('perfiles')
@@ -84,11 +85,11 @@ export default function InicioScreen() {
           .single();
         if (perfil?.nombre_rancho) {
           setNombreRancho(perfil.nombre_rancho);
-          await AsyncStorage.setItem('nombre_rancho', perfil.nombre_rancho);
+          await AsyncStorage.setItem(`nombre_rancho_${userId}`, perfil.nombre_rancho);
         }
         if (perfil?.logo_url) {
           setLogoUrl(perfil.logo_url);
-          await AsyncStorage.setItem('logo_url', perfil.logo_url);
+          await AsyncStorage.setItem(`logo_url_${userId}`, perfil.logo_url);
         }
 
         // Conteos por género
@@ -105,11 +106,13 @@ export default function InicioScreen() {
         setTotalHembras(hembras);
 
         // Caché de animales completo (para offline) — sin límite
-        const { data: cacheData } = await supabase
+        const { data: cacheData, error: errAn } = await supabase
           .from('animales')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
+        // 🛡️ Previene que un timeout (error) guarde un array vacío (null) y borre el caché
+        if (errAn) throw errAn; 
         await guardarCacheLocal('animales_cache', cacheData || []);
 
         // Tareas pendientes — sin límite artificial
@@ -141,6 +144,13 @@ export default function InicioScreen() {
       }
     } catch (error) {
       console.log('Error en fetch dashboard:', error);
+      const cacheAn = await obtenerCacheLocal<Animal[]>('animales_cache', true) ?? [];
+      const cacheTa = await obtenerCacheLocal<DosisMedica[]>('tareas_cache', true) ?? [];
+      setTotalAnimales(cacheAn.length);
+      setTotalMachos(cacheAn.filter(a => a.genero === 'Macho').length);
+      setTotalHembras(cacheAn.filter(a => a.genero === 'Hembra').length);
+      setTodasLasTareas(cacheTa);
+      setTareasPendientes(cacheTa.length);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -181,7 +191,7 @@ export default function InicioScreen() {
               <AlertCircle color="rgba(255,255,255,0.6)" size={16} />
             )}
             {logoUrl && (
-              <Image source={{ uri: logoUrl }} style={styles.headerLogo} resizeMode="cover" />
+              <Image source={{ uri: logoUrl }} style={styles.headerLogo} contentFit="cover" cachePolicy="disk" />
             )}
           </View>
         </View>

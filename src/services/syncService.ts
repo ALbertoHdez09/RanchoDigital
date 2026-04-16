@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from './localDB';
 import { supabase } from './supabase';
 import type { TareaSync } from '../types';
 
@@ -104,7 +104,7 @@ export async function sincronizarBuzon(): Promise<void> {
         // 🆕 Si era un animal, actualizamos el caché con el ID real de Supabase
         if (!err && insertado && tabla === 'animales') {
             const { guardarCacheLocal, obtenerCacheLocal } = require('./offlineService');
-            const cache = await obtenerCacheLocal('animales_cache') || [];
+            const cache = await obtenerCacheLocal('animales_cache', true) || [];
             // Reemplazamos el animal con ID temporal por el que tiene ID real
             const cacheActualizado = cache.map((a: any) =>
             String(a.arete_siniiga) === String(insertado.arete_siniiga) ? insertado : a
@@ -115,8 +115,26 @@ export async function sincronizarBuzon(): Promise<void> {
         }
       // 🔄 CASO 4: UPDATE
       else if (operacion === 'UPDATE') {
-        const { error: err } = await supabase.from(tabla).update(datosLimpios).eq('id', datosLimpios.id);
-        error = err;
+        // Estrategia "Last Write Wins" para Resolución de Conflictos
+        const { data: remoteData, error: fetchErr } = await supabase
+          .from(tabla)
+          .select('updated_at')
+          .eq('id', datosLimpios.id)
+          .single();
+          
+        let ignorarLocal = false;
+        if (!fetchErr && remoteData?.updated_at) {
+          const tiempoNube = new Date(remoteData.updated_at).getTime();
+          if (tiempoNube > tarea.timestamp) {
+             console.log(`⚠️ [Conflicto] ${tabla}: La nube tiene una versión más nueva. Descartando edición local.`);
+             ignorarLocal = true;
+          }
+        }
+
+        if (!ignorarLocal) {
+          const { error: err } = await supabase.from(tabla).update(datosLimpios).eq('id', datosLimpios.id);
+          error = err;
+        }
       }
 
       // 🗑️ CASO 5: DELETE
@@ -127,10 +145,10 @@ export async function sincronizarBuzon(): Promise<void> {
         // Si era un animal, limpiamos el caché relacionado
         if (!err && tabla === 'animales' && datosLimpios.id) {
           const { guardarCacheLocal, obtenerCacheLocal } = require('./offlineService');
-          const cache = await obtenerCacheLocal('animales_cache') || [];
+          const cache = await obtenerCacheLocal('animales_cache', true) || [];
           await guardarCacheLocal('animales_cache', cache.filter((a: any) => String(a.id) !== String(datosLimpios.id)));
           // Limpiar caché de pesajes e historial de salud de ese animal
-          const AsyncStorageModule = require('@react-native-async-storage/async-storage').default;
+          const AsyncStorageModule = require('./localDB').localDB;
           await AsyncStorageModule.multiRemove([
             `pesajes_${datosLimpios.id}`,
             `historial_salud_${datosLimpios.id}`,

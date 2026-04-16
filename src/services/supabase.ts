@@ -23,7 +23,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Faltan variables de entorno: EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// 3. Creamos el cliente con el "candado" de sesión activado
+// 3. Custom fetch para aplicar "Fast-Fail" en zonas rurales (4 segundos máximo de espera)
+const customFetch = (url: RequestInfo | URL, options?: RequestInit) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 4000);
+  
+  return fetch(url, {
+    ...options,
+    signal: controller.signal
+  }).then(response => {
+    clearTimeout(id);
+    return response;
+  }).catch(error => {
+    clearTimeout(id);
+    throw error;
+  });
+};
+
+// 4. Creamos el cliente con el candado de sesión y el custom fetch
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoSecureStoreAdapter as any,
@@ -31,6 +48,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: { fetch: customFetch }
 });
 
 /**

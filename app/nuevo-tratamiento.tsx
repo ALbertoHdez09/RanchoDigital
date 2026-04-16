@@ -10,7 +10,7 @@ import { obtenerCacheLocal, guardarCacheLocal } from '../src/services/offlineSer
 import { agregarAlBuzon } from '../src/services/syncService';
 import ModalAlerta from '../src/components/ModalAlerta';
 import type { Animal, DosisMedica } from '../src/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../src/services/localDB';
 import { descontarInventario } from '../src/services/inventarioService';
 
 export default function NuevoTratamientoScreen() {

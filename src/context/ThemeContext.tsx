@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 
 const ThemeContext = createContext({
   color: '#2D5A27',

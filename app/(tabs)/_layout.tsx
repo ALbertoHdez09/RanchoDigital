@@ -2,9 +2,11 @@ import { Tabs } from 'expo-router';
 import { Home, Package, Settings, Syringe, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { useTheme } from '../../src/context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { color } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -25,7 +27,7 @@ export default function TabLayout() {
           left: 0,
           right: 0,
           backgroundColor: '#FFFFFF',
-          height: 60,
+          height: 60 + insets.bottom,
           borderTopWidth: 1,
           borderTopColor: '#F0F0F0',
           elevation: 8,
@@ -34,7 +36,7 @@ export default function TabLayout() {
           shadowOpacity: 0.08,
           shadowRadius: 8,
           paddingTop: 5,
-          paddingBottom: 5,
+          paddingBottom: 5 + insets.bottom,
         },
       }}
     >

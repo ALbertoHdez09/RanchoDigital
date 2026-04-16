@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraView as CameraViewType } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { supabase } from '../src/services/supabase';
 import { useTheme } from '../src/context/ThemeContext';
 import {
   ChevronLeft, CheckCircle, PlusCircle, Stethoscope, Users,
@@ -10,7 +10,8 @@ import {
 } from 'lucide-react-native';
 import { useNetwork } from '../src/context/NetworkContext';
 import { obtenerCacheLocal } from '../src/services/offlineService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../src/services/localDB';
+import { supabase } from '../src/services/supabase';
 import type { Animal } from '../src/types';
 import { detectarArete, precargarModelo, liberarModelo } from '../src/services/areteScannerService';
 
@@ -123,7 +124,7 @@ export default function EscanerScreen() {
     try {
       const foto = await cameraRef.current.takePictureAsync({
         base64: false,
-        quality: 0.9,
+        quality: 0.7,
         skipProcessing: true,
       });
 
@@ -133,7 +134,14 @@ export default function EscanerScreen() {
         return;
       }
 
-      const deteccion = await detectarArete(foto.uri);
+      // Reducir la resolución a 800px para no saturar la RAM de la IA
+      const rescale = await ImageManipulator.manipulateAsync(
+        foto.uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const deteccion = await detectarArete(rescale.uri);
       console.log('🔍 Resultado IA:', JSON.stringify(deteccion));
 
       if (deteccion.areteDetectado && deteccion.numeroLeido) {

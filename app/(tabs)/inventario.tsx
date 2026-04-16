@@ -15,7 +15,7 @@ import { useNetwork } from '../../src/context/NetworkContext';
 import { obtenerCacheLocal, guardarCacheLocal } from '../../src/services/offlineService';
 import { agregarAlBuzon } from '../../src/services/syncService';
 import ModalAlerta from '../../src/components/ModalAlerta';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 import type { Medicamento, TipoMedicamento, UnidadMedicamento } from '../../src/types';
 
 const TIPOS: TipoMedicamento[]    = ['Medicamento', 'Vacuna', 'Vitamina', 'Antiparasitario', 'Mineral'];

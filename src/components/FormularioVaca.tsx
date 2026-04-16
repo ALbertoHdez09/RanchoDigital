@@ -166,6 +166,34 @@ export default function FormularioVaca() {
       }
     }
 
+    // 🛡️ VALIDACIONES LÓGICAS (Género y Edad)
+    const estado = form.estado;
+    const gen = form.genero;
+    if (gen === 'Macho' && ['Vaca Seca', 'Vientre / Producción', 'Cargada', 'Vacía', 'Vaquilla'].includes(estado)) {
+        setAlerta({ visible: true, titulo: 'Incongruencia', mensaje: `Un Macho no puede estar en estado: ${estado}.`, tipo: 'error' });
+        return;
+    }
+    if (gen === 'Hembra' && ['Semental', 'Torete / Novillo'].includes(estado)) {
+        setAlerta({ visible: true, titulo: 'Incongruencia', mensaje: `Una Hembra no puede ser ${estado}.`, tipo: 'error' });
+        return;
+    }
+    
+    if (form.fecha_nacimiento) {
+        const fecha = new Date(form.fecha_nacimiento);
+        const hoy = new Date();
+        const diffTiempo = Math.abs(hoy.getTime() - fecha.getTime());
+        const edadMeses = diffTiempo / (1000 * 60 * 60 * 24 * 30.416); // meses promedio
+
+        if (estado === 'Semental' && edadMeses < 12) {
+            setAlerta({ visible: true, titulo: 'Edad Inválida', mensaje: 'Un Semental debe tener al menos 12 meses de edad.', tipo: 'error' });
+            return;
+        }
+        if (estado === 'Becerro / Becerra' && edadMeses > 14) {
+            setAlerta({ visible: true, titulo: 'Edad Inválida', mensaje: 'Un Becerro(a) no suele tener más de 14 meses.', tipo: 'error' });
+            return;
+        }
+    }
+
     setLoading(true);
     try {
       // 🛡️ CAMBIO 1: Usamos getSession para obtener el ID del usuario sin forzar red
@@ -219,7 +247,7 @@ export default function FormularioVaca() {
 
       setTimeout(() => {
         setAlerta({ ...alerta, visible: false });
-        router.replace('/(tabs)/inventario');
+        router.replace('/(tabs)' as any);
       }, 2000);
 
     } catch (error: any) {
@@ -234,7 +262,7 @@ export default function FormularioVaca() {
   const currentValue = selectorConfig.tipo === 'estado' ? form.estado : form.fin_productivo;
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={60}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
         
         <View style={[styles.header, { backgroundColor: color }]}>

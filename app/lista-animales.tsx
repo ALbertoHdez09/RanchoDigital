@@ -9,6 +9,8 @@ import { obtenerCacheLocal } from '../src/services/offlineService';
 import { ChevronLeft, Search, Tag, Scale, ChevronDown, X } from 'lucide-react-native';
 import type { Animal, EstadoAnimal, FinProductivo } from '../src/types';
 
+const FlashListAny = FlashList as any;
+
 const PAGE_SIZE = 20;
 
 const ESTADOS: (EstadoAnimal | 'Todos')[] = [
@@ -41,7 +43,7 @@ export default function ListaAnimalesScreen() {
 
   const ESTADOS_FILTRO = ['Todos', 'Becerro / Becerra', 'Vaquilla', 'Vientre / Producción', 'Vaca Seca', 'Torete / Novillo', 'Semental'];
 
-  useFocusEffect(useCallback(() => { fetchAnimales(true); }, [isConnected, filtro]));
+  useFocusEffect(useCallback(() => { fetchAnimales(true); }, [filtro])); // UX: offline-fluid
 
   async function fetchAnimales(reset = false) {
     const paginaActual = reset ? 0 : pagina;
@@ -152,9 +154,10 @@ export default function ListaAnimalesScreen() {
           </TouchableOpacity>
         </View>
 
-        <FlashList<Animal>
+        {/* @ts-ignore */}
+        <FlashListAny
           data={filtrados}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item: any) => item.id.toString()}
           estimatedItemSize={110}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
@@ -163,7 +166,7 @@ export default function ListaAnimalesScreen() {
           onEndReachedThreshold={0.3}
           ListFooterComponent={cargandoMas ? <ActivityIndicator color={color} style={{ marginVertical: 16 }} /> : null}
           ListEmptyComponent={<Text style={styles.emptyText}>Sin animales en esta categoría</Text>}
-          renderItem={({ item }) => (
+          renderItem={({ item }: { item: any }) => (
             <TouchableOpacity
               style={styles.card}
               onPress={() => router.push(`/animal/${item.id}` as any)}

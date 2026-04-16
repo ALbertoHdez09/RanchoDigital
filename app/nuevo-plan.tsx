@@ -63,6 +63,21 @@ export default function NuevoPlanMedico() {
       return;
     }
 
+    // 🛡️ VALIDACIÓN DE FECHAS EN EL PASADO
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // Ignorar horas para la limitación
+
+    const fechaPasada = dosis.some(d => {
+      const fechaDosis = new Date(d.fecha);
+      fechaDosis.setHours(0, 0, 0, 0);
+      return fechaDosis < hoy;
+    });
+
+    if (fechaPasada) {
+      mostrar('Fecha inválida', 'No puedes agendar rutinas médicas en fechas del pasado.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
       // 🛡️ 3. USAMOS getSession PARA NO DEPENDER DEL INTERNET
@@ -114,7 +129,7 @@ export default function NuevoPlanMedico() {
         console.log("Guardando plan en buzón de salida...");
         
         // 1. Buscamos el animal en la libreta local
-        const cacheAnimales = await obtenerCacheLocal('animales_cache') || [];
+        const cacheAnimales = await obtenerCacheLocal<any[]>('animales_cache') || [];
         const animalEnCache = cacheAnimales.find((a: any) => String(a.arete_siniiga) === String(arete));
 
         if (!animalEnCache) {

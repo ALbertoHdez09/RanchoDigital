@@ -6,7 +6,7 @@ import { useTheme } from '../../src/context/ThemeContext';
 import { ChevronLeft, Syringe, Calendar, Stethoscope, MoreVertical, CheckCircle2, Trash2, Clock } from 'lucide-react-native';
 import { useNetwork } from '../../src/context/NetworkContext';
 import { obtenerCacheLocal, guardarCacheLocal } from '../../src/services/offlineService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 import type { DosisMedica } from '../../src/types';
 
 interface AnimalInfo {

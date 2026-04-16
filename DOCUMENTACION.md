@@ -359,8 +359,9 @@ RanchoDigital/
 │   │   ├── ThemeContext.tsx      ← Color de la app
 │   │   └── NetworkContext.tsx    ← Estado de la red
 │   ├── services/                 ← Conexiones con servicios externos
-│   │   ├── supabase.ts           ← Base de datos en la nube
-│   │   ├── offlineService.ts     ← Caché local con TTL
+│   │   ├── supabase.ts           ← Base de datos en la nube (con Fast-Fail Timeout)
+│   │   ├── localDB.ts            ← Base de datos SQLite ultrarrápida para caché
+│   │   ├── offlineService.ts     ← Gestor de caché asistido por localDB
 │   │   ├── syncService.ts        ← Sincronización automática
 │   │   ├── authService.ts        ← Autenticación
 │   │   ├── inventarioService.ts  ← Descuento automático de stock
@@ -385,16 +386,16 @@ RanchoDigital/
 ## Servicios
 
 ### `supabase.ts` — Base de datos en la nube
-Conexión con Supabase (PostgreSQL + Auth). La sesión del usuario se guarda de forma segura en el celular con `expo-secure-store`. Incluye `withTimeout()` para evitar que las queries se cuelguen indefinidamente.
+Conexión con Supabase (PostgreSQL + Auth). La sesión segura se custodia en el celular. Implementamos una estrategia de **"Fast-Fail" a los 4 segundos** en redes débiles para que la app aborte las llamadas "trabadas" de internet y caiga inmediatamente a mostrar los datos offline, evitando que parezca congelada en granjas.
 
-### `offlineService.ts` — Caché local
-Guarda y lee datos en el celular usando AsyncStorage. Cada dato tiene un timestamp — si tiene más de 5 minutos, se considera "expirado" y se actualiza desde internet cuando hay señal. Se puede forzar la lectura ignorando el TTL pasando `ignorarTTL = true`.
+### `localDB.ts` y `offlineService.ts` — Caché veloz en SQLite
+Se reemplazó el obsoleto AsyncStorage por un puente con `expo-sqlite`. Esto permite guardar miles de animales e historiales en el teléfono de manera ultrarrápida sin que la app colapse la memoria RAM. `offlineService.ts` asiste para decidir cuándo un dato "expiró" en base a sus minutos de viejo.
 
-### `syncService.ts` — Sincronización automática
-Cuando el usuario hace cambios sin internet, los guarda en una "cola de espera" (sync_queue). Cuando regresa la señal, este servicio envía todos los cambios pendientes a Supabase en orden. Maneja casos especiales:
+### `syncService.ts` — Sincronización automática a prueba de balas
+Cuando el usuario hace cambios sin internet, los guarda en una "cola de espera". Al regresar la señal, se suben a la nube. Está protegido con la política **"Last-Write-Wins"**: si alguien editó el mismo animal desde otra cuenta en la nube mientras tú estabas offline, el motor de sincronismo compara quién tiene el dato más fresco y respeta el último en guardarse sin destrozar la base de datos de los demás.
+Maneja casos especiales:
 - Planes médicos con múltiples dosis (los desempaca antes de enviar)
-- Duplicados (los descarta sin error)
-- Limpieza de caché relacionado al eliminar animales
+- Resolución de Conflictos vía `updated_at`
 
 ### `inventarioService.ts` — Descuento de stock
 Cuando se crea un tratamiento, busca el medicamento por nombre en el inventario y descuenta la cantidad. Funciona offline — descuenta del caché y encola el UPDATE para sincronizar. Retorna qué medicamentos quedaron con stock bajo.
@@ -477,7 +478,7 @@ Basado en literatura veterinaria bovina:
 | Expo 54 | Herramientas y módulos nativos |
 | Expo Router 6 | Navegación entre pantallas |
 | Supabase | Base de datos y autenticación en la nube |
-| AsyncStorage | Almacenamiento local en el celular |
+| expo-sqlite | Base de datos local robusta (offline-first) |
 | ML Kit Text Recognition | Lectura de texto en imágenes (IA, on-device) |
 | expo-image-manipulator | Procesamiento de imágenes |
 | expo-image-picker | Selección de fotos de la galería |

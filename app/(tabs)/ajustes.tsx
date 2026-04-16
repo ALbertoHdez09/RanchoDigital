@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 import { useRouter } from 'expo-router';
 import {
     Bell,
@@ -18,9 +18,10 @@ import {
     WifiOff,
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
+import { Image } from 'expo-image';
 import {
     ActivityIndicator,
-    Image, Linking,
+    Linking,
     Modal,
     ScrollView,
     StyleSheet,
@@ -203,10 +204,12 @@ export default function AjustesScreen() {
   }, [isConnected]);
 
   async function cargarPreferenciasLocales() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
     const libras  = await AsyncStorage.getItem('usar_libras');
     const limite  = await AsyncStorage.getItem('limite_inventario');
-    const rancho  = await AsyncStorage.getItem('nombre_rancho');
-    const logo    = await AsyncStorage.getItem('logo_url');
+    const rancho  = userId ? await AsyncStorage.getItem(`nombre_rancho_${userId}`) : await AsyncStorage.getItem('nombre_rancho');
+    const logo    = userId ? await AsyncStorage.getItem(`logo_url_${userId}`) : await AsyncStorage.getItem('logo_url');
     if (libras !== null) setUsarLibras(libras === 'true');
     if (limite !== null) setLimiteInventario(limite);
     if (rancho !== null) setNombreRancho(rancho);
@@ -227,16 +230,16 @@ export default function AjustesScreen() {
         await guardarCacheLocal('perfil_email', user.email || '');
         const { data } = await supabase
           .from('perfiles')
-          .select('nombre_rancho, notificaciones_on')
+          .select('nombre_rancho, notificaciones_on, logo_url')
           .eq('id', user.id)
           .single();
         if (data) {
           setNombreRancho(data.nombre_rancho || '');
-          await AsyncStorage.setItem('nombre_rancho', data.nombre_rancho || '');
+          await AsyncStorage.setItem(`nombre_rancho_${user.id}`, data.nombre_rancho || '');
           setNotisActivas(data.notificaciones_on ?? true);
           if (data.logo_url) {
             setLogoUrl(data.logo_url);
-            await AsyncStorage.setItem('logo_url', data.logo_url);
+            await AsyncStorage.setItem(`logo_url_${user.id}`, data.logo_url);
           }
         }
       }
@@ -258,7 +261,7 @@ export default function AjustesScreen() {
           .from('perfiles')
           .update({ nombre_rancho: nombreRancho, notificaciones_on: notisActivas })
           .eq('id', session.user.id);
-        await AsyncStorage.setItem('nombre_rancho', nombreRancho);
+        await AsyncStorage.setItem(`nombre_rancho_${session.user.id}`, nombreRancho);
         mostrar('¡Listo, patrón!', 'Los datos del rancho se actualizaron.', 'exito');
       }
     } catch {
@@ -331,7 +334,7 @@ export default function AjustesScreen() {
       const publicUrl = urlData.publicUrl + `?t=${Date.now()}`; // cache bust
 
       setLogoUrl(publicUrl);
-      await AsyncStorage.setItem('logo_url', publicUrl);
+      await AsyncStorage.setItem(`logo_url_${userId}`, publicUrl);
 
       // Guardar en perfil
       await supabase.from('perfiles').update({ logo_url: publicUrl }).eq('id', userId);
@@ -442,7 +445,7 @@ export default function AjustesScreen() {
               {subiendoLogo
                 ? <ActivityIndicator size="small" color={color} />
                 : logoUrl
-                  ? <Image source={{ uri: logoUrl }} style={styles.logoPreview} />
+                  ? <Image source={{ uri: logoUrl }} style={styles.logoPreview} cachePolicy="disk" />
                   : <View style={[styles.logoPreview, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
                       <Plus color="#9CA3AF" size={18} />
                     </View>

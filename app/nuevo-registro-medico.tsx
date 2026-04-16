@@ -10,7 +10,7 @@ import { useNetwork } from '../src/context/NetworkContext';
 import { obtenerCacheLocal, guardarCacheLocal } from '../src/services/offlineService';
 import { agregarAlBuzon } from '../src/services/syncService';
 import ModalAlerta from '../src/components/ModalAlerta';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../src/services/localDB';
 import { descontarInventario } from '../src/services/inventarioService';
 
 export default function NuevoRegistroMedico() {
@@ -88,7 +88,7 @@ export default function NuevoRegistroMedico() {
 
   const agregarDosisPrev = () => setDosisPreventivas([...dosisPreventivas, { id: Date.now(), tipo: 'Vacuna', producto: '', fecha: new Date(), hora: new Date() }]);
 
-  const mostrarAlerta = (tipo: 'exito' | 'error', titulo: string, mensaje: string) => {
+  const mostrarAlerta = (tipo: 'exito' | 'error' | 'info', titulo: string, mensaje: string) => {
     setAlerta({ visible: true, tipo, titulo, mensaje });
   };
   // 👆 -------------------------------------------------------- 👆
@@ -133,6 +133,27 @@ export default function NuevoRegistroMedico() {
   // 🛡️ GUARDADO OFFLINE CON CAJA ANIDADA
   async function guardarRegistro() {
     if (!animalSeleccionado.id) return mostrarAlerta('error', 'Falta información', 'Selecciona un animal primero.');
+
+    // 🛡️ VALIDACIÓN DE FECHAS EN EL PASADO
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    if (tipoRegistro === 'preventivo') {
+      const fechaPasada = dosisPreventivas.some(d => {
+        const fechaDosis = new Date(d.fecha);
+        fechaDosis.setHours(0, 0, 0, 0);
+        return fechaDosis < hoy;
+      });
+      if (fechaPasada) {
+        return mostrarAlerta('error', 'Fecha Inválida', 'No puedes agendar dosis preventivas en fechas pasadas.');
+      }
+    } else {
+      const fechaInicioTratamiento = new Date(datosTratamiento.fechaInicio);
+      fechaInicioTratamiento.setHours(0, 0, 0, 0);
+      if (fechaInicioTratamiento < hoy) {
+        return mostrarAlerta('error', 'Fecha Inválida', 'No puedes iniciar un tratamiento en una fecha pasada.');
+      }
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -210,7 +231,7 @@ export default function NuevoRegistroMedico() {
   planData.dosis_medicas = dosisData;
   await agregarAlBuzon('planes_medicos', 'INSERT', planData);
   // 🆕 FIX Bug #6: Actualizamos tareas_cache para que aparezca de inmediato
-  const cacheActual = await obtenerCacheLocal('tareas_cache') || [];
+  const cacheActual = await obtenerCacheLocal<any[]>('tareas_cache') || [];
   const animalInfo = animales.find((a: any) => a.id === planData.animal_id) || {};
   const nuevasDosisParaCache = dosisData.map((d, i) => ({
     id: Date.now() + i,

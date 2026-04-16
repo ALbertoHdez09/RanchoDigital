@@ -1,6 +1,6 @@
 import { NetworkProvider, useNetwork } from '@/src/context/NetworkContext';
 import { ThemeProvider } from '@/src/context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../src/services/localDB';
 import { Session } from '@supabase/supabase-js';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { WifiOff } from 'lucide-react-native';
@@ -51,15 +51,6 @@ function AppContent() {
     });
   }, []);
 
-  // Cuando llegamos a login desde onboarding, re-leer para actualizar el estado
-  useEffect(() => {
-    if (segments[0] === 'login') {
-      AsyncStorage.getItem('onboarding_completado').then(val => {
-        if (val === 'true') setOnboardingVisto(true);
-      });
-    }
-  }, [segments[0]]);
-
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -70,29 +61,43 @@ function AppContent() {
 
   useEffect(() => {
     if (!initialized || onboardingVisto === null) return;
-    const currentSegment = segments[0] as string;
 
-    // Pantallas que no requieren redirección
-    const pantallasLibres = ['onboarding', 'login', 'registro', 'recuperar-contrasena'];
+    const evaluarNavegacion = async () => {
+      const currentSegment = segments[0] as string;
+      const pantallasLibres = ['onboarding', 'login', 'registro', 'recuperar-contrasena'];
 
-    // Mostrar onboarding solo la primera vez — no redirigir si ya está ahí
-    if (!onboardingVisto) {
-      if (currentSegment !== 'onboarding') {
-        router.replace('/onboarding' as any);
+      let isVisto = onboardingVisto;
+
+      // Mostrar onboarding solo la primera vez — no redirigir si ya está ahí
+      if (!isVisto) {
+        // Validación asíncrona para evitar regresar al onboarding al darle "saltar" / "comenzar" (race condition)
+        const val = await AsyncStorage.getItem('onboarding_completado');
+        if (val === 'true') {
+          setOnboardingVisto(true);
+          isVisto = true;
+        }
       }
-      return; // ← importante: no seguir evaluando si onboarding no está visto
-    }
 
-    // Con sesión activa en pantalla de login/onboarding → ir al inicio
-    if (session && pantallasLibres.includes(currentSegment)) {
-      router.replace('/(tabs)' as any);
-      return;
-    }
+      if (!isVisto) {
+        if (currentSegment !== 'onboarding') {
+          router.replace('/onboarding' as any);
+        }
+        return; // ← importante: no seguir evaluando si onboarding no está visto
+      }
 
-    // Sin sesión fuera de pantallas libres → login
-    if (!session && !pantallasLibres.includes(currentSegment)) {
-      router.replace('/login' as any);
-    }
+      // Con sesión activa en pantalla de login/onboarding → ir al inicio
+      if (session && pantallasLibres.includes(currentSegment)) {
+        router.replace('/(tabs)' as any);
+        return;
+      }
+
+      // Sin sesión fuera de pantallas libres → login
+      if (!session && !pantallasLibres.includes(currentSegment)) {
+        router.replace('/login' as any);
+      }
+    };
+    
+    evaluarNavegacion();
   }, [session, initialized, onboardingVisto, segments]);
 
   if (!initialized) {

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from './localDB';
 import type { CacheEntry } from '../types';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos

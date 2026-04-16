@@ -6,7 +6,7 @@ import { useTheme } from '../../src/context/ThemeContext';
 import { ChevronLeft, Scale, Info, Syringe, CheckCircle2, Search, ScanLine, Calendar } from 'lucide-react-native';
 import { useNetwork } from '../../src/context/NetworkContext';
 import { guardarCacheLocal, obtenerCacheLocal } from '../../src/services/offlineService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDB as AsyncStorage } from '../../src/services/localDB';
 import TabGeneral from '../../src/components/PerfilAnimal/TabGeneral';
 import TabPesos from '../../src/components/PerfilAnimal/TabPesos';
 import TabSalud from '../../src/components/PerfilAnimal/TabSalud';
@@ -67,7 +67,7 @@ export default function DetalleAnimal() {
     // 🔴 MODO OFFLINE
     if (!isConnected) {
       console.log("Perfil Offline: Cargando desde caché...");
-      const cache = await obtenerCacheLocal('animales_cache') || [];
+      const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
       const ani = cache.find((a: any) => String(a.id) === String(id));
         if (ani) {
           const animalConFamilia = { ...ani };
@@ -83,9 +83,9 @@ export default function DetalleAnimal() {
         } else {
           setAlerta({ visible: true, titulo: 'No encontrado', mensaje: 'Este animal no está en la memoria local.', tipo: 'error' });
         }
-      const cacheHistorial = await obtenerCacheLocal(`historial_salud_${id}`) || [];
+      const cacheHistorial = await obtenerCacheLocal<any[]>(`historial_salud_${id}`) || [];
       setHistorialSalud(cacheHistorial);
-      const cachePesos = await obtenerCacheLocal(`pesajes_${id}`) || [];
+      const cachePesos = await obtenerCacheLocal<any[]>(`pesajes_${id}`) || [];
         setHistorialPesos(cachePesos);
         const pesoIn = parseFloat(ani?.peso_inicial) || 0;
         if (cachePesos.length > 0) {
@@ -151,7 +151,7 @@ export default function DetalleAnimal() {
     setBusquedaArete('');
     setModalPadres({ visible: true, tipo });
     if (!isConnected) {
-      const cache = await obtenerCacheLocal('animales_cache') || [];
+      const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
       setAnimalesLista(cache.filter((a: any) => String(a.id) !== String(id)));
     } else {
       const { data: { session } } = await supabase.auth.getSession();
@@ -204,7 +204,7 @@ export default function DetalleAnimal() {
 
     try {
       if (!isConnected) {
-        const cache = await obtenerCacheLocal('animales_cache') || [];
+        const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
         const idx = cache.findIndex((a: any) => String(a.id) === String(id));
         if (idx !== -1) {
           cache[idx][campoActualizar] = animalData.id;
@@ -231,7 +231,7 @@ async function buscarYVincularPadre() {
   try {
     let data = null;
     if (!isConnected) {
-      const cache = await obtenerCacheLocal('animales_cache') || [];
+      const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
       data = cache.find((a: any) =>
         a.arete_siniiga?.toLowerCase() === busquedaArete.trim().toLowerCase()
       );
@@ -261,7 +261,7 @@ async function buscarYVincularPadre() {
     const campo = tipo === 'padre' ? 'id_padre' : 'id_madre';
     try {
       if (!isConnected) {
-        const cache = await obtenerCacheLocal('animales_cache') || [];
+        const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
         const idx = cache.findIndex((a: any) => String(a.id) === String(id));
         if (idx !== -1) { cache[idx][campo] = null; await guardarCacheLocal('animales_cache', cache); }
         const queue = JSON.parse(await AsyncStorage.getItem('sync_queue') || '[]');
@@ -300,7 +300,7 @@ async function guardarEdicionAnimal() {
       fecha_nacimiento: formEditar.fecha_nacimiento || null,
     };
     if (!isConnected) {
-      const cache = await obtenerCacheLocal('animales_cache') || [];
+      const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
       const idx = cache.findIndex((a: any) => String(a.id) === String(id));
       if (idx !== -1) { Object.assign(cache[idx], cambios); await guardarCacheLocal('animales_cache', cache); }
       const queue = JSON.parse(await AsyncStorage.getItem('sync_queue') || '[]');
@@ -339,7 +339,7 @@ async function ejecutarBorradoAnimal() {
     } else {
       await supabase.from('animales').delete().eq('id', id);
     }
-    router.replace('/(tabs)/inventario');
+    router.replace('/(tabs)' as any);
   } catch (e) {
     setAlerta({ visible: true, titulo: 'Error', mensaje: 'No se pudo eliminar el animal.', tipo: 'error' });
   }
@@ -355,7 +355,7 @@ async function ejecutarBorradoAnimal() {
 
   async function persistirFecha(cambios: { fecha_nacimiento: string | null }) {
     try {      if (!isConnected) {
-        const cache = await obtenerCacheLocal('animales_cache') || [];
+        const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
         const idx = cache.findIndex((a: any) => String(a.id) === String(id));
         if (idx !== -1) { Object.assign(cache[idx], cambios); await guardarCacheLocal('animales_cache', cache); }
         const queue = JSON.parse(await AsyncStorage.getItem('sync_queue') || '[]');
@@ -375,7 +375,7 @@ async function ejecutarBorradoAnimal() {
   async function cambiarEstadoDosis(dosis_id: string, nuevoEstado: string) {
     try {
       if (!isConnected) {
-        const cacheH = await obtenerCacheLocal(`historial_salud_${id}`) || [];
+        const cacheH = await obtenerCacheLocal<any[]>(`historial_salud_${id}`) || [];
         const updated = cacheH.map((d: any) => String(d.id) === String(dosis_id) ? { ...d, estado: nuevoEstado } : d);
         await guardarCacheLocal(`historial_salud_${id}`, updated);
         setHistorialSalud(updated);
@@ -395,7 +395,7 @@ async function ejecutarBorradoAnimal() {
   async function borrarDosis(dosis_id: string) {
     try {
       if (!isConnected) {
-        const cacheH = await obtenerCacheLocal(`historial_salud_${id}`) || [];
+        const cacheH = await obtenerCacheLocal<any[]>(`historial_salud_${id}`) || [];
         const updated = cacheH.filter((d: any) => String(d.id) !== String(dosis_id));
         await guardarCacheLocal(`historial_salud_${id}`, updated);
         setHistorialSalud(updated);
@@ -429,7 +429,7 @@ async function ejecutarBorradoAnimal() {
 
       if (!isConnected) {
         // Guardar en cache local
-        const cachePesos = await obtenerCacheLocal(`pesajes_${id}`) || [];
+        const cachePesos = await obtenerCacheLocal<any[]>(`pesajes_${id}`) || [];
         cachePesos.unshift({ ...nuevoPesaje, id: `temp_${Date.now()}` });
         await guardarCacheLocal(`pesajes_${id}`, cachePesos);
         // Agregar al buzón de sincronización
@@ -508,7 +508,7 @@ async function ejecutarBorradoAnimal() {
               try {
                 const cambios = { estado: nuevaEtapa };
                 if (!isConnected) {
-                  const cache = await obtenerCacheLocal('animales_cache') || [];
+                  const cache = await obtenerCacheLocal<any[]>('animales_cache') || [];
                   const idx = cache.findIndex((a: any) => String(a.id) === String(id));
                   if (idx !== -1) { Object.assign(cache[idx], cambios); await guardarCacheLocal('animales_cache', cache); }
                   const queue = JSON.parse(await AsyncStorage.getItem('sync_queue') || '[]');

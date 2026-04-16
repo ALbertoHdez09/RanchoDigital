@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Activity, ChevronRight, Plus } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetwork } from '../../src/context/NetworkContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { guardarCacheLocal, obtenerCacheLocal } from '../../src/services/offlineService';
@@ -28,11 +29,12 @@ export default function ActividadesScreen() {
   const { color } = useTheme();
   const router = useRouter();
   const { isConnected } = useNetwork();
+  const insets = useSafeAreaInsets();
 
   const [grupos, setGrupos] = useState<GrupoActividad[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useFocusEffect(useCallback(() => { fetchDatosAgrupados(); }, [isConnected]));
+  useFocusEffect(useCallback(() => { fetchDatosAgrupados(); }, [])); // UX: removido isConnected para fluidez
 
   async function fetchDatosAgrupados() {
     setLoading(true);
@@ -149,7 +151,7 @@ export default function ActividadesScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: color }]}
+        style={[styles.fab, { backgroundColor: color, bottom: 85 + insets.bottom }]}
         onPress={() => router.push('/nuevo-registro-medico')}
       >
         <Plus color="white" size={28} />
